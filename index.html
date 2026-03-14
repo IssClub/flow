@@ -3,9 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0d1f3c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0a1628">
+<meta name="apple-mobile-web-app-title" content="Flow">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="./manifest.json">
+<!-- iOS icon -->
+<link rel="apple-touch-icon" sizes="180x180" href="./icon.png">
 <title>Flow — שתיית מים</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Noto+Sans+Hebrew:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -120,12 +125,19 @@ html, body {
   position: absolute; inset: 0;
   overflow-y: auto; overflow-x: hidden;
   padding: 0 16px 100px;
-  opacity: 0; transform: translateX(30px);
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  display: none;
+  opacity: 0;
   pointer-events: none;
 }
 .view.active {
-  opacity: 1; transform: translateX(0); pointer-events: all;
+  display: block;
+  opacity: 1;
+  pointer-events: all;
+  animation: viewIn 0.25s ease forwards;
+}
+@keyframes viewIn {
+  from { opacity: 0; transform: translateX(14px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
 .view::-webkit-scrollbar { display: none; }
 
@@ -596,6 +608,25 @@ html, body {
 .empty-icon { font-size: 40px; opacity: 0.3; }
 .empty-text { font-size: 13px; color: var(--text3); text-align: center; }
 
+/* ───── GENDER SELECTOR ───── */
+.gender-selector {
+  display: flex; gap: 6px;
+}
+.gender-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 8px 12px; border-radius: 12px; cursor: pointer;
+  background: rgba(255,255,255,0.05); border: 1.5px solid var(--border2);
+  transition: all 0.2s;
+}
+.gender-btn.active {
+  background: rgba(60,160,255,0.2); border-color: var(--bright);
+  box-shadow: 0 0 12px rgba(60,160,255,0.2);
+}
+.gender-emoji { font-size: 22px; }
+.gender-label { font-size: 10px; color: var(--text3); font-weight: 600; }
+.gender-btn.active .gender-label { color: var(--glow); }
+.gender-btn:active { transform: scale(0.93); }
+
 /* ───── TIPS VIEW ───── */
 .tip-hero-card {
   background: linear-gradient(135deg, rgba(42,111,196,0.45), rgba(26,58,107,0.7));
@@ -705,10 +736,10 @@ html, body {
     <div class="modal-handle"></div>
     <div class="modal-title">הוסף שתייה</div>
     <div class="quick-btns">
-      <div class="quick-btn" onclick="quickAdd(250)">
+      <div class="quick-btn" onclick="quickAdd(180)">
         <div class="quick-btn-icon">🥤</div>
-        <div class="quick-btn-ml">250</div>
-        <div class="quick-btn-label">כוס</div>
+        <div class="quick-btn-ml">180</div>
+        <div class="quick-btn-label">כוס חד"פ</div>
       </div>
       <div class="quick-btn" onclick="quickAdd(500)">
         <div class="quick-btn-icon">🍶</div>
@@ -906,12 +937,31 @@ html, body {
             <div class="setting-title">שם</div>
             <div class="setting-sub">לפרסונליזציה של ההתראות</div>
           </div>
-          <input type="text" class="setting-input" id="settingName" placeholder="שמך" style="direction:rtl;text-align:right;width:100px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="text" class="setting-input" id="settingName" placeholder="שמך"
+              style="direction:rtl;text-align:right;width:80px"
+              oninput="saveSettings()">
+            <div style="font-size:11px;color:var(--success);opacity:0;transition:opacity 0.3s" id="nameSaved">✓</div>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-icon">🪪</div>
+          <div class="setting-info">
+            <div class="setting-title">מין</div>
+            <div class="setting-sub">לשפה נכונה בהודעות</div>
+          </div>
+          <div class="gender-selector" id="genderSelector">
+            <div class="gender-btn active" id="genderM" onclick="setGender('m')">
+              <span class="gender-emoji">👨</span>
+              <span class="gender-label">זכר</span>
+            </div>
+            <div class="gender-btn" id="genderF" onclick="setGender('f')">
+              <span class="gender-emoji">👩</span>
+              <span class="gender-label">נקבה</span>
+            </div>
+          </div>
         </div>
       </div>
-
-      <div class="settings-section">
-        <div class="settings-label">יעדי שתייה</div>
         <div class="setting-row">
           <div class="setting-icon">🎯</div>
           <div class="setting-info">
@@ -1068,7 +1118,7 @@ const WATER_FACTS = [
 ];
 
 let state = {
-  settings: { dailyGoal: 2500, workoutBonus: 1000, name: '', interval: 60, startHour: '07:00', endHour: '22:00', reminders: false },
+  settings: { dailyGoal: 2500, workoutBonus: 1000, name: '', gender: 'm', interval: 60, startHour: '07:00', endHour: '22:00', reminders: false },
   today: { date: todayStr(), entries: [], isWorkout: false },
   history: [],
   streak: { current: 0, best: 0 },
@@ -1181,6 +1231,23 @@ function checkCurrentBadges() {
 // ─────────────────────────────────────────────
 let celebratedToday = false;
 
+// ─── Gender-aware helpers ───
+function g(male, female) {
+  return state.settings.gender === 'f' ? female : male;
+}
+function getName(prefix='') {
+  return state.settings.name ? `${prefix}${state.settings.name}` : '';
+}
+// greeting suffix — לא בשימוש יותר, ברכות ניטרליות
+
+function setGender(val) {
+  state.settings.gender = val;
+  document.getElementById('genderM').classList.toggle('active', val === 'm');
+  document.getElementById('genderF').classList.toggle('active', val === 'f');
+  saveState(); updateHeader(); updateUI();
+  showToast(val === 'f' ? '👩' : '👨', `ההודעות יופיעו ב${val === 'f' ? 'נקבה' : 'זכר'}`);
+}
+
 function addWater(ml) {
   ml = parseInt(ml);
   if (!ml || ml <= 0 || ml > 5000) return;
@@ -1195,8 +1262,7 @@ function addWater(ml) {
   if (total >= goal && !celebratedToday) {
     celebratedToday = true;
     setTimeout(() => showCelebration(total), 600);
-  }
-}
+  }}
 
 function quickAdd(ml) { addWater(ml); }
 function addCustom() {
@@ -1220,7 +1286,9 @@ function toggleWorkout() {
   state.today.isWorkout = !state.today.isWorkout;
   saveState(); updateUI();
   showToast(state.today.isWorkout ? '🏋️' : '🏠',
-    state.today.isWorkout ? 'יום אימון! יעד עלה ב-1,000 מ"ל' : 'חזרת לרגיל — יעד בסיס');
+    state.today.isWorkout
+      ? `יום אימון${getName(', ')}! יעד עלה ב-1,000 מ"ל 💪`
+      : `${g('חזרת','חזרת')} לרגיל${getName(', ')} — יעד בסיס`);
 }
 
 // ─────────────────────────────────────────────
@@ -1248,23 +1316,23 @@ function updateUI() {
   const sm = document.getElementById('statusMsg');
   const hour = new Date().getHours();
   if (pct >= 100) {
-    sm.textContent = '🎉 מדהים! יעד יומי הושג בהצלחה!';
+    sm.textContent = `🎉 ${g('מדהים','מדהימה')}! יעד יומי הושג בהצלחה!`;
     sm.className = 'status-msg status-ok';
   } else {
     // Expected % by hour (7am–10pm = 15h)
     const expectedPct = Math.min(100, Math.round(Math.max(0, hour - 7) / 15 * 100));
     if (pct >= expectedPct - 10) {
-      sm.textContent = '✅ אתה בכיוון לעמוד ביעד!';
+      sm.textContent = `✅ ${g('אתה','את')} בכיוון לעמוד ביעד!`;
       sm.className = 'status-msg status-ok';
     } else if (pct >= expectedPct - 25) {
-      sm.textContent = `⚠️ מעט אחורה — שתה עוד ${Math.round(remaining/250)} כוסות כדי להשיג`;
+      sm.textContent = `⚠️ מעט אחורה — ${g('שתה','שתי')} עוד ${Math.round(remaining/250)} כוסות כדי להשיג`;
       sm.className = 'status-msg status-warn';
     } else {
-      sm.textContent = `🚨 אתה מפגר! שתה לפחות ${Math.round(remaining/2/250)} כוסות עכשיו`;
+      sm.textContent = `🚨 ${g('אתה מפגר','את מפגרת')}! ${g('שתה','שתי')} לפחות ${Math.round(remaining/2/250)} כוסות עכשיו`;
       sm.className = 'status-msg status-danger';
     }
     if (total === 0) {
-      sm.textContent = '💧 בוא נתחיל! שתה את הכוס הראשונה';
+      sm.textContent = `💧 בוא${g('','י')} נתחיל! ${g('שתה','שתי')} את הכוס הראשונה`;
       sm.className = 'status-msg status-warn';
     }
   }
@@ -1414,11 +1482,17 @@ function renderHistory() {
 function saveSettings() {
   state.settings.dailyGoal = parseInt(document.getElementById('settingGoal').value) || 2500;
   state.settings.workoutBonus = parseInt(document.getElementById('settingWorkoutBonus').value) || 1000;
-  state.settings.name = document.getElementById('settingName').value;
+  state.settings.name = document.getElementById('settingName').value.trim();
   state.settings.interval = parseInt(document.getElementById('settingInterval').value);
   state.settings.startHour = document.getElementById('settingStart').value;
   state.settings.endHour = document.getElementById('settingEnd').value;
+  // gender saved separately via setGender(), but sync display
+  const gv = state.settings.gender || 'm';
+  document.getElementById('genderM').classList.toggle('active', gv === 'm');
+  document.getElementById('genderF').classList.toggle('active', gv === 'f');
   saveState(); updateHeader(); updateUI();
+  const ind = document.getElementById('nameSaved');
+  if (ind) { ind.style.opacity = '1'; setTimeout(() => ind.style.opacity = '0', 1500); }
 }
 
 function resetToday() {
@@ -1479,10 +1553,10 @@ function startReminders() {
     const goal = getTodayGoal();
     const pct = Math.round(total/goal*100);
     const fact = WATER_FACTS[Math.floor(Math.random()*WATER_FACTS.length)].text.replace(/<[^>]+>/g,'');
-    const name = state.settings.name ? ` ${state.settings.name}` : '';
+    const n = getName();
     const body = pct >= 100
-      ? `מדהים${name}! השגת את היעד היומי! 🎉`
-      : `${name ? name+', ' : ''}שתית ${total} מ"ל (${pct}%). עוד ${goal-total} מ"ל ליעד. 💡 ${fact}`;
+      ? `${n ? n+', ' : ''}${g('מדהים','מדהימה')}! ${g('השגת','השגת')} את היעד היומי! 🎉`
+      : `${n ? n+', ' : ''}${g('שתית','שתית')} ${total} מ"ל (${pct}%). עוד ${goal-total} מ"ל ליעד. 💡 ${fact}`;
     new Notification('💧 Flow — זמן לשתות!', { body, icon: '💧' });
   }, ms);
 }
@@ -1535,9 +1609,9 @@ function showToast(icon, text) {
 // ─────────────────────────────────────────────
 function showCelebration(total) {
   const cel = document.getElementById('celebration');
-  const name = state.settings.name ? `, ${state.settings.name}` : '';
-  document.querySelector('.celeb-title').textContent = `יעד הושג! 🎉`;
-  document.querySelector('.celeb-sub').textContent = `כל הכבוד${name}! שתית ${total.toLocaleString()} מ"ל היום 💧`;
+  const n = getName();
+  document.querySelector('.celeb-title').textContent = n ? `כל הכבוד, ${n}! 🎉` : `יעד הושג! 🎉`;
+  document.querySelector('.celeb-sub').textContent = `${g('שתית','שתית')} ${total.toLocaleString()} מ"ל היום — הגוף שלך מודה לך 💧`;
   cel.classList.add('active');
   spawnConfetti();
 }
@@ -1723,6 +1797,57 @@ window.addEventListener('load', () => {
 
 // save on blur
 window.addEventListener('blur', saveState);
+
+// ─────────────────────────────────────────────
+// PWA — Service Worker Registration
+// ─────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    // Listen for quick-drink from notification action
+    navigator.serviceWorker.addEventListener('message', e => {
+      if (e.data && e.data.type === 'QUICK_DRINK') {
+        addWater(e.data.ml);
+        showToast('💧', `שתיית ${e.data.ml} מ"ל נרשמה מההתראה${getName(' — ')}!`);
+      }
+    });
+  });
+}
+
+// ─────────────────────────────────────────────
+// PWA — iOS Install Banner
+// ─────────────────────────────────────────────
+function showInstallBanner() {
+  // Only show on iOS Safari, not already installed
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone === true;
+  const dismissed = localStorage.getItem('flow_install_dismissed');
+  if (!isIOS || isStandalone || dismissed) return;
+
+  const banner = document.createElement('div');
+  banner.id = 'installBanner';
+  banner.style.cssText = `
+    position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+    width:calc(100% - 32px);max-width:400px;z-index:900;
+    background:linear-gradient(135deg,rgba(26,58,107,0.98),rgba(19,42,80,0.99));
+    border:1px solid rgba(96,200,255,0.4);border-radius:18px;
+    padding:14px 16px;display:flex;align-items:center;gap:12px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.4);
+    animation:slideUp 0.4s cubic-bezier(0.4,0,0.2,1);
+  `;
+  banner.innerHTML = `
+    <div style="font-size:28px">💧</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:700;color:#f0f8ff;margin-bottom:2px">התקן את Flow על המסך הבית</div>
+      <div style="font-size:11px;color:#9dd4f5">לחץ <strong style="color:#60c8ff">שתף</strong> ואז <strong style="color:#60c8ff">"הוסף למסך הבית"</strong> לקבלת התראות</div>
+    </div>
+    <div onclick="document.getElementById('installBanner').remove();localStorage.setItem('flow_install_dismissed','1')"
+      style="font-size:18px;color:#6aaad8;cursor:pointer;padding:4px">✕</div>
+  `;
+  document.body.appendChild(banner);
+}
+
+setTimeout(showInstallBanner, 2000);
 </script>
 </body>
 </html>
