@@ -67,13 +67,13 @@ html, body {
 
 /* ───── BACKGROUND ───── */
 .bg-layer {
-  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
   background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(42,111,196,0.55) 0%, transparent 70%),
               radial-gradient(ellipse 60% 50% at 80% 80%, rgba(26,58,107,0.5) 0%, transparent 60%),
               linear-gradient(180deg, #0d1f3c 0%, #132a50 100%);
 }
 .bg-bubbles {
-  position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+  position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
   -webkit-transform: translateZ(0);
   transform: translateZ(0);
 }
@@ -103,6 +103,7 @@ html, body {
   display: flex; flex-direction: column;
   height: 100vh; max-width: 430px; margin: 0 auto;
   overflow: hidden;
+  background: linear-gradient(180deg, #0d1f3c 0%, #132a50 100%);
 }
 
 /* ───── HEADER ───── */
@@ -737,6 +738,8 @@ html, body {
 </head>
 <body>
 
+<!-- APP -->
+<div id="app">
 <div class="bg-layer"></div>
 <div class="bg-bubbles" id="bubbles"></div>
 
@@ -796,8 +799,6 @@ html, body {
   </div>
 </div>
 
-<!-- APP -->
-<div id="app">
   <div class="app-header">
     <div>
       <div class="app-logo">Flow</div>
