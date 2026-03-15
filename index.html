@@ -1595,24 +1595,29 @@ let reminderInterval = null;
 
 function toggleReminders() {
   if (!state.settings.reminders) {
-    // Try OneSignal first, fallback to browser
-    if (window.OneSignalDeferred) {
-      OneSignalDeferred.push(function(OneSignal) {
-        OneSignal.Notifications.requestPermission().then(function(permission) {
-          if (permission) {
-            state.settings.reminders = true;
-            saveSettings(); updateUI();
-            startReminders();
-            showToast('🔔', `התראות הופעלו${getName(', ')}!`);
-          } else {
-            showToast('⚠️', 'לא ניתן אישור להתראות');
-          }
-        }).catch(function() {
-          requestBrowserNotification();
-        });
+    // Check if permission already granted
+    if ('Notification' in window && Notification.permission === 'granted') {
+      // Already have permission — just activate
+      state.settings.reminders = true;
+      saveSettings(); updateUI();
+      startReminders();
+      showToast('🔔', `התראות הופעלו${getName(', ')}!`);
+      return;
+    }
+    // Need to request permission
+    if ('Notification' in window) {
+      Notification.requestPermission().then(function(p) {
+        if (p === 'granted') {
+          state.settings.reminders = true;
+          saveSettings(); updateUI();
+          startReminders();
+          showToast('🔔', `התראות הופעלו${getName(', ')}!`);
+        } else {
+          showToast('⚠️', 'לא ניתן אישור — בדוק הגדרות iPhone');
+        }
       });
     } else {
-      requestBrowserNotification();
+      showToast('⚠️', 'הדפדפן לא תומך בהתראות');
     }
   } else {
     state.settings.reminders = false;
@@ -1634,8 +1639,6 @@ function requestBrowserNotification() {
       }
       saveSettings(); updateUI();
     });
-  } else {
-    showToast('⚠️', 'הדפדפן לא תומך בהתראות');
   }
 }
 
