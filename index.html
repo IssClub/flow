@@ -1767,7 +1767,19 @@ async function enablePush() {
           const nativePerm = OneSignal.Notifications.permissionNative;
           const opted = OneSignal.User.PushSubscription.optedIn;
           const subId = OneSignal.User.PushSubscription.id;
-          sub.textContent = `perm:${nativePerm} opted:${opted} id:${subId||'none'}`;
+          // בדיקת SW ו-pushManager ישירות
+          let swInfo = 'no-sw';
+          let pmInfo = 'no-pm';
+          try {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            swInfo = regs.map(r => r.scope.replace(location.origin,'')).join(',') || 'none';
+          } catch(e) { swInfo = 'err:'+e.message; }
+          try {
+            const reg = await navigator.serviceWorker.ready;
+            const pmSub = await reg.pushManager.getSubscription();
+            pmInfo = pmSub ? 'has-sub' : 'no-sub';
+          } catch(e) { pmInfo = 'err:'+e.message; }
+          sub.textContent = `perm:${nativePerm} opted:${opted} id:${subId||'none'} sw:[${swInfo}] pm:${pmInfo}`;
           btn.textContent = '?';
           resolve();
         });
