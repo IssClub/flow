@@ -1762,6 +1762,18 @@ async function enablePush() {
     await new Promise(resolve => {
       if (window.OneSignalDeferred) {
         window.OneSignalDeferred.push(async (OneSignal) => {
+          // אם כבר יש הרשאה — רק ודא שה-subscription פעיל
+          const nativePerm = OneSignal.Notifications.permissionNative;
+          if (nativePerm === 'granted') {
+            await OneSignal.User.PushSubscription.optIn();
+            btn.textContent = '✅';
+            btn.style.color = 'var(--success)';
+            sub.textContent = 'המכשיר רשום — Push יגיע גם כשהאפליקציה סגורה';
+            showToast('✅', 'התראות פעילות!');
+            resolve();
+            return;
+          }
+          // אחרת — בקש הרשאה
           const granted = await OneSignal.Notifications.requestPermission();
           if (granted) {
             btn.textContent = '✅';
