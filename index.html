@@ -97,6 +97,29 @@ html, body {
   100% { transform: translateY(-20vh) scale(1); opacity: 0; }
 }
 
+/* ───── FALLING WATER DROPS ───── */
+.drop {
+  position: absolute;
+  border-radius: 50% 50% 40% 40% / 70% 70% 30% 30%;
+  background: linear-gradient(180deg, rgba(150,220,255,0.28) 0%, rgba(60,140,255,0.07) 100%);
+  border: 1px solid rgba(96,200,255,0.18);
+  -webkit-animation: waterDrop linear infinite;
+  animation: waterDrop linear infinite;
+  will-change: transform, opacity;
+}
+@-webkit-keyframes waterDrop {
+  0%   { -webkit-transform: translateY(-6vh); transform: translateY(-6vh); opacity: 0; }
+  8%   { opacity: 1; }
+  88%  { opacity: 0.7; }
+  100% { -webkit-transform: translateY(108vh); transform: translateY(108vh); opacity: 0; }
+}
+@keyframes waterDrop {
+  0%   { transform: translateY(-6vh); opacity: 0; }
+  8%   { opacity: 1; }
+  88%  { opacity: 0.7; }
+  100% { transform: translateY(108vh); opacity: 0; }
+}
+
 /* ───── APP SHELL ───── */
 #app {
   position: relative; z-index: 1;
@@ -122,6 +145,7 @@ html, body {
   font-size: 12px; color: var(--text3); letter-spacing: 0.5px;
 }
 
+.app-greeting {
   font-size: 15px; font-weight: 600; color: var(--white);
   margin-top: 2px; line-height: 1.3;
 }
@@ -1054,6 +1078,30 @@ html, body {
       </div>
 
       <div class="settings-section">
+        <div class="settings-label">Push Server</div>
+        <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:6px">
+          <div style="display:flex;align-items:center;gap:10px;width:100%">
+            <div class="setting-icon">🌐</div>
+            <div class="setting-info">
+              <div class="setting-title">Worker URL</div>
+              <div class="setting-sub">לפוש ברקע גם כשהאפליקציה סגורה (iOS)</div>
+            </div>
+          </div>
+          <input type="url" class="setting-input" id="settingProxyUrl" placeholder="https://flow-push.YOUR.workers.dev"
+            style="width:100%;font-size:12px;direction:ltr;text-align:left;margin-right:0"
+            onchange="saveSettings()">
+        </div>
+        <div class="setting-row" style="cursor:pointer" onclick="testPush()">
+          <div class="setting-icon">🧪</div>
+          <div class="setting-info">
+            <div class="setting-title">בדיקת Push</div>
+            <div class="setting-sub">שלח התראת בדיקה עכשיו</div>
+          </div>
+          <span style="color:var(--bright);font-size:13px">שלח</span>
+        </div>
+      </div>
+
+      <div class="settings-section">
         <div class="settings-label">נתונים</div>
         <div class="setting-row" style="cursor:pointer" onclick="resetToday()">
           <div class="setting-icon">🔄</div>
@@ -1082,7 +1130,7 @@ html, body {
       </div>
 
       <div style="text-align:center;padding:20px 0;color:var(--text3);font-size:11px">
-        Flow v1.0 — שמור על עצמך 💙
+        Flow v1.2 — שמור על עצמך 💙
       </div>
     </div>
 
@@ -1159,8 +1207,8 @@ const WATER_FACTS = [
 ];
 
 let state = {
-  settings: { dailyGoal: 2500, workoutBonus: 1000, name: '', gender: 'm', interval: 60, startHour: '07:00', endHour: '22:00', reminders: false },
-  today: { date: todayStr(), entries: [], isWorkout: false },
+  settings: { dailyGoal: 2500, workoutBonus: 1000, name: '', gender: 'm', interval: 60, startHour: '07:00', endHour: '22:00', reminders: false, proxyUrl: '' },
+  today: { date: todayStr(), entries: [], isWorkout: false, celebratedToday: false },
   history: [],
   streak: { current: 0, best: 0 },
   badges: []
@@ -1225,7 +1273,7 @@ function loadState() {
       // check date rollover
       if (state.today.date !== todayStr()) {
         archiveToday();
-        state.today = { date: todayStr(), entries: [], isWorkout: false };
+        state.today = { date: todayStr(), entries: [], isWorkout: false, celebratedToday: false };
         saveState();
       }
     }
@@ -1282,7 +1330,6 @@ function checkCurrentBadges() {
 // ─────────────────────────────────────────────
 // ADD WATER
 // ─────────────────────────────────────────────
-let celebratedToday = false;
 
 // ─── Gender-aware helpers ───
 function g(male, female) {
@@ -1312,8 +1359,9 @@ function addWater(ml) {
   const total = getTodayTotal();
   const goal = getTodayGoal();
   showToast('💧', `+${fmtMl(ml)} נוסף! סה"כ היום: ${fmtMl(total)}`);
-  if (total >= goal && !celebratedToday) {
-    celebratedToday = true;
+  if (total >= goal && !state.today.celebratedToday) {
+    state.today.celebratedToday = true;
+    saveState();
     setTimeout(() => showCelebration(total), 600);
   }}
 
@@ -1328,7 +1376,7 @@ function stepCustom(delta) {
 }
 function deleteEntry(idx) {
   state.today.entries.splice(idx, 1);
-  celebratedToday = getTodayTotal() >= getTodayGoal();
+  state.today.celebratedToday = getTodayTotal() >= getTodayGoal();
   saveState(); updateUI();
 }
 
@@ -1419,18 +1467,23 @@ function updateUI() {
   // Week dots
   const wd = document.getElementById('weekDots');
   wd.innerHTML = '';
-  const days = ['א','ב','ג','ד','ה','ו','ש'];
-  const today = new Date().getDay();
+  const todayDow = new Date().getDay();
   for (let i = 0; i < 7; i++) {
-    const diff = (i - today + 7) % 7;
-    const d = new Date(); d.setDate(d.getDate() - (diff === 0 ? 0 : 7 - diff));
-    // simplified: just show current week pattern
     const dot = document.createElement('div');
-    dot.style.cssText = `width:10px;height:10px;border-radius:50%;background:${
-      i === today ? 'var(--glow)' :
-      (state.history[0] && i === today-1 && state.history[0].achieved) ? 'var(--success)' :
-      'rgba(255,255,255,0.1)'
-    };`;
+    let bg;
+    if (i > todayDow) {
+      bg = 'rgba(255,255,255,0.08)';
+    } else if (i === todayDow) {
+      const tt = getTodayTotal(), tg = getTodayGoal();
+      bg = tt >= tg ? 'var(--success)' : 'var(--glow)';
+    } else {
+      const daysAgo = todayDow - i;
+      const d = new Date(); d.setDate(d.getDate() - daysAgo);
+      const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const h = state.history.find(h => h.date === ds);
+      bg = h ? (h.achieved ? 'var(--success)' : 'rgba(255,107,107,0.5)') : 'rgba(255,255,255,0.08)';
+    }
+    dot.style.cssText = `width:10px;height:10px;border-radius:50%;background:${bg};`;
     wd.appendChild(dot);
   }
 
@@ -1450,6 +1503,7 @@ function updateUI() {
   document.getElementById('settingInterval').value = state.settings.interval;
   document.getElementById('settingStart').value = state.settings.startHour;
   document.getElementById('settingEnd').value = state.settings.endHour;
+  document.getElementById('settingProxyUrl').value = state.settings.proxyUrl || '';
   document.getElementById('reminderSwitch').classList.toggle('on', state.settings.reminders);
 
   renderHistory();
@@ -1550,11 +1604,14 @@ function saveSettings() {
   state.settings.interval = parseInt(document.getElementById('settingInterval').value);
   state.settings.startHour = document.getElementById('settingStart').value;
   state.settings.endHour = document.getElementById('settingEnd').value;
+  state.settings.proxyUrl = (document.getElementById('settingProxyUrl').value || '').trim().replace(/\/$/, '');
   // gender saved separately via setGender(), but sync display
   const gv = state.settings.gender || 'm';
   document.getElementById('genderM').classList.toggle('active', gv === 'm');
   document.getElementById('genderF').classList.toggle('active', gv === 'f');
   saveState(); updateHeader(); updateUI();
+  if (state.settings.reminders) { stopReminders(); startReminders(); }
+  syncScheduleToWorker();
   const ind = document.getElementById('nameSaved');
   if (ind) { ind.style.opacity = '1'; setTimeout(() => ind.style.opacity = '0', 1500); }
 }
@@ -1563,7 +1620,7 @@ function resetToday() {
   if (confirm('לאפס את נתוני היום?')) {
     state.today.entries = [];
     state.today.isWorkout = false;
-    celebratedToday = false;
+    state.today.celebratedToday = false;
     saveState(); updateUI();
     showToast('🔄', 'נתוני היום אופסו');
   }
@@ -1589,6 +1646,68 @@ function clearAllData() {
 }
 
 // ─────────────────────────────────────────────
+// PUSH — unified send + proxy sync
+// ─────────────────────────────────────────────
+function showLocalNotification(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  // Use SW registration — works even when tab is in background
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.ready.then(reg => {
+      reg.showNotification(title, {
+        body,
+        icon: './icon.png',
+        badge: './icon.png',
+        vibrate: [100, 50, 100],
+        data: { url: './' },
+        actions: [
+          { action: 'drink', title: '💧 שתיתי!', icon: './icon.png' },
+          { action: 'later', title: 'אחר כך' }
+        ]
+      });
+    });
+  } else {
+    new Notification(title, { body, icon: './icon.png' });
+  }
+}
+
+function sendNotification(title, body) {
+  const proxy = state.settings.proxyUrl;
+  if (proxy) {
+    // Via Cloudflare Worker — works on iOS Safari (no CORS issue)
+    fetch(proxy + '/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ heading: title, message: body })
+    }).catch(() => showLocalNotification(title, body));
+  } else {
+    showLocalNotification(title, body);
+  }
+}
+
+async function syncScheduleToWorker() {
+  const proxy = state.settings.proxyUrl;
+  if (!proxy) return;
+  try {
+    await fetch(proxy + '/schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        active: state.settings.reminders,
+        interval: state.settings.interval,
+        startHour: state.settings.startHour,
+        endHour: state.settings.endHour
+      })
+    });
+  } catch(e) {}
+}
+
+function testPush() {
+  const n = getName();
+  sendNotification('💧 Flow — בדיקה', `${n ? n + ', ' : ''}הפוש עובד! 🎉`);
+  showToast('🧪', 'התראת בדיקה נשלחה');
+}
+
+// ─────────────────────────────────────────────
 // REMINDERS — OneSignal
 // ─────────────────────────────────────────────
 let reminderInterval = null;
@@ -1611,6 +1730,7 @@ function toggleReminders() {
           state.settings.reminders = true;
           saveSettings(); updateUI();
           startReminders();
+          syncScheduleToWorker();
           showToast('🔔', `התראות הופעלו${getName(', ')}!`);
         } else {
           showToast('⚠️', 'לא ניתן אישור — בדוק הגדרות iPhone');
@@ -1623,6 +1743,7 @@ function toggleReminders() {
     state.settings.reminders = false;
     stopReminders();
     saveSettings(); updateUI();
+    syncScheduleToWorker();
     showToast('🔕', 'התראות כובו');
   }
 }
@@ -1660,9 +1781,7 @@ function startReminders() {
     const body = pct >= 100
       ? `${n ? n+', ' : ''}${g('מדהים','מדהימה')}! השגת את היעד היומי! 🎉`
       : `${n ? n+', ' : ''}שתית ${fmtMl(total)} (${pct}%). עוד ${fmtMl(goal-total)} ליעד. 💡 ${fact}`;
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, { body, icon: './icon.png', badge: './icon.png' });
-    }
+    sendNotification(title, body);
   }, ms);
 }
 
@@ -1753,7 +1872,7 @@ function spawnConfetti() {
 }
 
 // ─────────────────────────────────────────────
-// BACKGROUND BUBBLES
+// BACKGROUND BUBBLES + DROPS
 // ─────────────────────────────────────────────
 function initBubbles() {
   const container = document.getElementById('bubbles');
@@ -1771,6 +1890,27 @@ function initBubbles() {
       background:rgba(96,200,255,${0.04 + Math.random()*0.06});
     `;
     container.appendChild(b);
+  }
+}
+
+function initDrops() {
+  const container = document.getElementById('bubbles');
+  for (let i = 0; i < 14; i++) {
+    const d = document.createElement('div');
+    d.className = 'drop';
+    const w = 4 + Math.random() * 11;
+    const h = w * (1.5 + Math.random() * 0.5);
+    const dur = 4 + Math.random() * 9;
+    d.style.cssText = `
+      width:${w}px;
+      height:${h}px;
+      left:${Math.random() * 100}%;
+      animation-duration:${dur}s;
+      -webkit-animation-duration:${dur}s;
+      animation-delay:${-(Math.random() * dur)}s;
+      -webkit-animation-delay:${-(Math.random() * dur)}s;
+    `;
+    container.appendChild(d);
   }
 }
 
@@ -1886,6 +2026,7 @@ function showDailyFact() {
 // ─────────────────────────────────────────────
 window.addEventListener('load', () => {
   initBubbles();
+  initDrops();
   loadState();
   updateHeader();
   initTips();
@@ -1893,7 +2034,9 @@ window.addEventListener('load', () => {
   fetchWeather();
   updateUI();
   if (state.settings.reminders) startReminders();
-  celebratedToday = getTodayTotal() >= getTodayGoal() && getTodayTotal() > 0;
+  if (!state.today.celebratedToday && getTodayTotal() >= getTodayGoal() && getTodayTotal() > 0) {
+    state.today.celebratedToday = true;
+  }
 
   // No demo data — start fresh, history builds from real usage
 });

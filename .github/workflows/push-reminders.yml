@@ -1,0 +1,56 @@
+name: Flow Push Reminders
+
+on:
+  schedule:
+    #  ┌─ minute  ┌─ hour (UTC)
+    #  │           │
+    - cron: '0 * * * *'    # כל שעה — הסקריפט מסנן לפי שעות פעילות בישראל
+    # אפשרויות נוספות:
+    # - cron: '*/30 * * * *'   # כל 30 דקות
+    # - cron: '0 */2 * * *'    # כל שעתיים
+  workflow_dispatch:          # אפשרות להפעיל ידנית לבדיקה
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Flow push reminder
+        env:
+          ONESIGNAL_APP_ID:  ${{ secrets.ONESIGNAL_APP_ID }}
+          ONESIGNAL_REST_KEY: ${{ secrets.ONESIGNAL_REST_KEY }}
+          START_HOUR: '7'    # שעת התחלה — שנה כאן אם רוצה
+          END_HOUR:   '22'   # שעת סיום   — שנה כאן אם רוצה
+        run: |
+          # ── בדיקת שעה בישראל (UTC+2/+3 אוטומטית) ──────────────────
+          HOUR=$(TZ="Asia/Jerusalem" date +%-H)
+
+          if [ "$HOUR" -lt "$START_HOUR" ] || [ "$HOUR" -ge "$END_HOUR" ]; then
+            echo "⏭  שעה $HOUR — מחוץ לשעות פעילות ($START_HOUR-$END_HOUR). מדלג."
+            exit 0
+          fi
+
+          echo "📤 שולח Push (שעה בישראל: $HOUR:00)..."
+
+          # ── שליחה ל-OneSignal REST API ──────────────────────────────
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Basic ${ONESIGNAL_REST_KEY}" \
+            https://onesignal.com/api/v1/notifications \
+            -d "{
+              \"app_id\": \"${ONESIGNAL_APP_ID}\",
+              \"included_segments\": [\"Total Subscriptions\"],
+              \"headings\": {\"he\": \"💧 Flow — זמן לשתות!\"},
+              \"contents\": {\"he\": \"אל תשכח לשתות מים 💧\"}
+            }")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+
+          echo "📨 תשובה ($HTTP_CODE): $BODY"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ שגיאה בשליחה"
+            exit 1
+          fi
+
+          echo "✅ Push נשלח בהצלחה"
