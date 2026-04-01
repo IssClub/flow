@@ -762,7 +762,7 @@ html, body {
 <body>
 
 <div class="bg-layer"></div>
-<div class="bg-bubbles" id="bubbles"></div>
+<div id="bubbles"></div>
 
 <!-- TOAST -->
 <div class="toast" id="toast">
@@ -2073,7 +2073,6 @@ function showDailyFact() {
 // INIT
 // ─────────────────────────────────────────────
 window.addEventListener('load', () => {
-  initBubbles();
   initDrops();
   loadState();
   updateHeader();
