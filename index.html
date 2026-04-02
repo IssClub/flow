@@ -838,7 +838,7 @@ html, body {
       <div class="app-greeting" id="appGreeting"></div>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
-      <div class="weather-pill" id="weatherPill">
+      <div class="weather-pill" id="weatherPill" onclick="requestWeatherLocation()" style="cursor:pointer">
         <span id="weatherIcon">🌡️</span>
         <span id="weatherTemp">—°</span>
       </div>
@@ -2071,17 +2071,30 @@ async function fetchWeatherCoords(lat, lon) {
 
 async function fetchWeather() {
   try {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        pos => fetchWeatherCoords(pos.coords.latitude, pos.coords.longitude).catch(() => {}),
-        ()  => fetchWeatherCoords(32.08, 34.78)
-      );
+    const saved = localStorage.getItem('flow_location');
+    if (saved) {
+      const { lat, lon } = JSON.parse(saved);
+      await fetchWeatherCoords(lat, lon);
     } else {
       await fetchWeatherCoords(32.08, 34.78);
     }
   } catch(e) {
     document.getElementById('weatherTemp').textContent = '—°';
   }
+}
+
+function requestWeatherLocation() {
+  if (!navigator.geolocation) return;
+  document.getElementById('weatherTemp').textContent = '...';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      localStorage.setItem('flow_location', JSON.stringify({ lat, lon }));
+      fetchWeatherCoords(lat, lon).catch(() => {});
+    },
+    () => fetchWeatherCoords(32.08, 34.78)
+  );
 }
 function weatherIcon(code) {
   if (code === 0) return '☀️';
