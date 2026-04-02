@@ -2,7 +2,7 @@ name: Flow Push Reminders
 
 on:
   schedule:
-    - cron: '* * * * *'
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -13,7 +13,16 @@ jobs:
         env:
           ONESIGNAL_APP_ID:   ${{ secrets.ONESIGNAL_APP_ID }}
           ONESIGNAL_REST_KEY: ${{ secrets.ONESIGNAL_REST_KEY }}
+          START_HOUR: '7'
+          END_HOUR:   '22'
         run: |
+          export TZ="Asia/Jerusalem"
+          HOUR=$(date +%-H)
+          if [ "$HOUR" -lt "$START_HOUR" ] || [ "$HOUR" -ge "$END_HOUR" ]; then
+            echo "Outside active hours ($HOUR). Skipping."
+            exit 0
+          fi
+
           RESPONSE=$(curl -s -X POST \
             -H "Content-Type: application/json" \
             -H "Authorization: Basic ${ONESIGNAL_REST_KEY}" \
@@ -21,8 +30,8 @@ jobs:
             -d "{
               \"app_id\": \"${ONESIGNAL_APP_ID}\",
               \"included_segments\": [\"Total Subscriptions\"],
-              \"headings\": {\"en\": \"Flow - Time to drink!\", \"he\": \"Flow - זמן לשתות!\"},
-              \"contents\": {\"en\": \"Don't forget to drink water\", \"he\": \"אל תשכח לשתות מים\"}
+              \"headings\": {\"en\": \"זמן לשתות\", \"he\": \"זמן לשתות\"},
+              \"contents\": {\"en\": \"{{reminder_text}}\", \"he\": \"{{reminder_text}}\"}
             }")
           echo "OneSignal response: $RESPONSE"
           if echo "$RESPONSE" | grep -q '"errors"'; then
