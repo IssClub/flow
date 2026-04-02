@@ -2,69 +2,32 @@ name: Flow Push Reminders
 
 on:
   schedule:
-    - cron: '*/15 * * * *'  # רץ כל 15 דקות — הסקריפט מחליט אם לשלוח
-  workflow_dispatch:          # הפעלה ידנית לבדיקה
+    - cron: '*/5 * * * *'  # כל 5 דקות (מינימום GitHub) — לבדיקה
+  workflow_dispatch:
 
 jobs:
   remind:
     runs-on: ubuntu-latest
     steps:
-
-      - name: Restore last-sent timestamp
-        uses: actions/cache/restore@v4
-        with:
-          path: .last-sent
-          key: flow-last-sent-unused
-          restore-keys: |
-            flow-last-sent-
-
-      - name: Check interval and send reminder
+      - name: Send Push
         env:
           ONESIGNAL_APP_ID:   ${{ secrets.ONESIGNAL_APP_ID }}
           ONESIGNAL_REST_KEY: ${{ secrets.ONESIGNAL_REST_KEY }}
-          INTERVAL_MIN:       ${{ vars.FLOW_INTERVAL_MIN || '60' }}
-          START_HOUR: '7'
-          END_HOUR:   '22'
         run: |
-          export TZ="Asia/Jerusalem"
-          HOUR=$(date +%-H)
-
-          if [ "$HOUR" -lt "$START_HOUR" ] || [ "$HOUR" -ge "$END_HOUR" ]; then
-            echo "skipping — outside active hours"
-            exit 0
-          fi
-
-          NOW=$(date +%s)
-          INTERVAL_SEC=$((INTERVAL_MIN * 60))
-          LAST_SENT=0
-
-          if [ -f .last-sent ]; then
-            LAST_SENT=$(cat .last-sent)
-            ELAPSED=$((NOW - LAST_SENT))
-            if [ "$ELAPSED" -lt "$INTERVAL_SEC" ]; then
-              echo "not time yet (${ELAPSED}s / ${INTERVAL_SEC}s)"
-              exit 0
-            fi
-          fi
-
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+          RESPONSE=$(curl -s -X POST \
             -H "Content-Type: application/json" \
             -H "Authorization: Basic ${ONESIGNAL_REST_KEY}" \
             https://onesignal.com/api/v1/notifications \
-            -d "{\"app_id\":\"${ONESIGNAL_APP_ID}\",\"included_segments\":[\"Total Subscriptions\"],\"headings\":{\"he\":\"Flow\"},\"contents\":{\"he\":\"אל תשכח לשתות מים\"}}")
-
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          echo "HTTP $HTTP_CODE"
-
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "$NOW" > .last-sent
-          else
+            -d "{
+              \"app_id\": \"${ONESIGNAL_APP_ID}\",
+              \"included_segments\": [\"Total Subscriptions\"],
+              \"headings\": {\"he\": \"💧 Flow — זמן לשתות!\"},
+              \"contents\": {\"he\": \"אל תשכח לשתות מים 💧\"}
+            }")
+          echo "OneSignal response: $RESPONSE"
+          RECIPIENTS=$(echo "$RESPONSE" | grep -o '"recipients":[0-9]*' | grep -o '[0-9]*')
+          echo "Recipients: ${RECIPIENTS:-unknown}"
+          if echo "$RESPONSE" | grep -q '"errors"'; then
+            echo "ERROR in response"
             exit 1
           fi
-
-      - name: Save last-sent timestamp
-        uses: actions/cache/save@v4
-        if: always()
-        with:
-          path: .last-sent
-          key: flow-last-sent-${{ github.run_id }}
