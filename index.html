@@ -1659,8 +1659,23 @@ function saveSettings() {
   document.getElementById('genderF').classList.toggle('active', gv === 'f');
   saveState(); updateHeader(); updateUI();
   syncScheduleToWorker();
+  syncOneSignalTags();
   const ind = document.getElementById('nameSaved');
   if (ind) { ind.style.opacity = '1'; setTimeout(() => ind.style.opacity = '0', 1500); }
+}
+
+function syncOneSignalTags() {
+  try {
+    const name = state.settings.name || '';
+    const isFemale = state.settings.gender === 'f';
+    const reminderText = name
+      ? `${name}, אל תשכח${isFemale ? 'י' : ''} לשתות מים`
+      : `אל תשכח${isFemale ? 'י' : ''} לשתות מים`;
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    window.OneSignalDeferred.push(async (OneSignal) => {
+      await OneSignal.User.addTag('reminder_text', reminderText);
+    });
+  } catch(e) {}
 }
 
 function resetToday() {
