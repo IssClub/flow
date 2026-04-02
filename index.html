@@ -1338,6 +1338,7 @@ function setGender(val) {
   document.getElementById('genderM').classList.toggle('active', val === 'm');
   document.getElementById('genderF').classList.toggle('active', val === 'f');
   saveState(); updateHeader(); updateUI();
+  syncOneSignalTags();
   showToast(val === 'f' ? '👩' : '👨', `ההודעות יופיעו ב${val === 'f' ? 'נקבה' : 'זכר'}`);
 }
 
