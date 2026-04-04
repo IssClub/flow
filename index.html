@@ -1697,9 +1697,7 @@ function syncOneSignalTags() {
   try {
     const name = state.settings.name || '';
     const isFemale = state.settings.gender === 'f';
-    const reminderText = name
-      ? `${name}, אל תשכח${isFemale ? 'י' : ''} לשתות מים`
-      : `אל תשכח${isFemale ? 'י' : ''} לשתות מים`;
+    const reminderText = name ? `היי ${name}` : 'היי';
     if (window.OneSignal && window.OneSignal.User) {
       const tags = { reminder_text: reminderText };
       const selected = state.settings.reminderHours || [];
