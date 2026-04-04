@@ -1698,12 +1698,14 @@ function syncOneSignalTags() {
     const name = state.settings.name || '';
     const isFemale = state.settings.gender === 'f';
     const reminderText = name ? `היי ${name}` : 'היי';
-    if (window.OneSignal && window.OneSignal.User) {
+    const doSync = (OneSignal) => {
       const tags = { reminder_text: reminderText };
       const selected = state.settings.reminderHours || [];
       for (let h = 6; h <= 23; h++) tags[`h${h}`] = selected.includes(h) ? '1' : '0';
-      window.OneSignal.User.addTags(tags);
-    }
+      OneSignal.User.addTags(tags);
+    };
+    if (window.OneSignalDeferred) window.OneSignalDeferred.push(doSync);
+    else if (window.OneSignal?.User) doSync(window.OneSignal);
   } catch(e) {}
 }
 
