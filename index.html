@@ -1670,7 +1670,7 @@ function saveSettings() {
   document.getElementById('genderM').classList.toggle('active', gv === 'm');
   document.getElementById('genderF').classList.toggle('active', gv === 'f');
   saveState(); updateHeader(); updateUI();
-  syncOneSignalTags();
+  syncOneSignalTags(); syncWithWorker();
   const ind = document.getElementById('nameSaved');
   if (ind) { ind.style.opacity = '1'; setTimeout(() => ind.style.opacity = '0', 1500); }
 }
@@ -1775,34 +1775,7 @@ function showLocalNotification(title, body) {
 }
 
 function sendNotification(title, body) {
-  const proxy = state.settings.proxyUrl;
-  if (proxy) {
-    // Via Cloudflare Worker — works on iOS Safari (no CORS issue)
-    fetch(proxy + '/notify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ heading: title, message: body })
-    }).catch(() => showLocalNotification(title, body));
-  } else {
-    showLocalNotification(title, body);
-  }
-}
-
-async function syncScheduleToWorker() {
-  const proxy = state.settings.proxyUrl;
-  if (!proxy) return;
-  try {
-    await fetch(proxy + '/schedule', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        active: state.settings.reminders,
-        interval: state.settings.interval,
-        startHour: state.settings.startHour,
-        endHour: state.settings.endHour
-      })
-    });
-  } catch(e) {}
+  showLocalNotification(title, body);
 }
 
 function testPush() {
@@ -1921,7 +1894,6 @@ function toggleReminders() {
           state.settings.reminders = true;
           saveSettings(); updateUI();
           startReminders();
-          syncScheduleToWorker();
           showToast('🔔', `התראות הופעלו${getName(', ')}!`);
         } else {
           showToast('⚠️', 'לא ניתן אישור — בדוק הגדרות iPhone');
@@ -1934,7 +1906,6 @@ function toggleReminders() {
     state.settings.reminders = false;
     stopReminders();
     saveSettings(); updateUI();
-    syncScheduleToWorker();
     showToast('🔕', 'התראות כובו');
   }
 }
