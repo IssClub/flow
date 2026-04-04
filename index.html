@@ -162,7 +162,9 @@ html, body {
   background: var(--glass); border: 1px solid var(--border2);
   border-radius: 20px; padding: 6px 12px; font-size: 13px;
   color: var(--foam); font-weight: 600; white-space: nowrap;
+  cursor: pointer; transition: all 0.2s;
 }
+.weather-pill:active { transform: scale(0.94); background: var(--glass2); }
 
 .header-btn {
   width: 40px; height: 40px; border-radius: 12px;
@@ -846,7 +848,7 @@ html, body {
       <div class="app-greeting" id="appGreeting"></div>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
-      <div class="weather-pill" id="weatherPill">
+      <div class="weather-pill" id="weatherPill" onclick="fetchWeather(true)" title="לחץ לעדכון מיקום">
         <span id="weatherIcon">🌡️</span>
         <span id="weatherTemp">—°</span>
       </div>
@@ -2099,31 +2101,53 @@ function updateHeader() {
 // WEATHER (Open-Meteo — free, no key)
 // ─────────────────────────────────────────────
 async function fetchWeatherCoords(lat, lon) {
-  const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&temperature_unit=celsius`);
-  const data = await res.json();
-  const temp = Math.round(data.current_weather.temperature);
-  const code = data.current_weather.weathercode;
-  document.getElementById('weatherIcon').textContent = weatherIcon(code);
-  document.getElementById('weatherTemp').textContent = `${temp}°`;
+  try {
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&temperature_unit=celsius`);
+    const data = await res.json();
+    const temp = Math.round(data.current_weather.temperature);
+    const code = data.current_weather.weathercode;
+    document.getElementById('weatherIcon').textContent = weatherIcon(code);
+    document.getElementById('weatherTemp').textContent = `${temp}°`;
+  } catch(e) {}
 }
 
-function fetchWeather() {
+// userTriggered=true → מבקש GPS חדש (נקרא על ידי לחיצה)
+// userTriggered=false → משתמש בקואורדינטות שמורות בלבד (נקרא בטעינה)
+function fetchWeather(userTriggered) {
+  const cached = localStorage.getItem('flow_coords');
+
+  if (!userTriggered) {
+    // טעינה — רק אם יש קואורדינטות שמורות
+    if (cached) {
+      const { lat, lon } = JSON.parse(cached);
+      fetchWeatherCoords(lat, lon);
+    } else {
+      // אין מיקום — הצג hint ללחוץ
+      document.getElementById('weatherIcon').textContent = '📍';
+      document.getElementById('weatherTemp').textContent = '  ';
+    }
+    return;
+  }
+
+  // לחיצת משתמש — בקש GPS
   if (!navigator.geolocation) {
     fetchWeatherCoords(32.08, 34.78);
     return;
   }
-  // getCurrentPosition triggers the iOS permission dialog immediately
+  document.getElementById('weatherIcon').textContent = '⏳';
+  document.getElementById('weatherTemp').textContent = '  ';
   navigator.geolocation.getCurrentPosition(
     pos => {
-      fetchWeatherCoords(pos.coords.latitude, pos.coords.longitude).catch(() => {});
-      // After permission granted, watch for location changes (cache up to 5 hours)
-      navigator.geolocation.watchPosition(
-        p => fetchWeatherCoords(p.coords.latitude, p.coords.longitude).catch(() => {}),
-        () => {},
-        { enableHighAccuracy: false, timeout: 10000, maximumAge: 18000000 }
-      );
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      localStorage.setItem('flow_coords', JSON.stringify({ lat, lon }));
+      fetchWeatherCoords(lat, lon);
     },
-    () => fetchWeatherCoords(32.08, 34.78),
+    () => {
+      // נדחה — fallback תל אביב
+      fetchWeatherCoords(32.08, 34.78);
+      showToast('📍', 'לא אושר מיקום — מציג תל אביב');
+    },
     { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
   );
 }
@@ -2207,7 +2231,7 @@ window.addEventListener('load', () => {
   updateHeader();
   initTips();
   showDailyFact();
-  fetchWeather();
+  fetchWeather(false);
   updatePushStatus();
   updateUI();
   if (state.settings.reminders) startReminders();
