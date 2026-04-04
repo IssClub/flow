@@ -1706,10 +1706,11 @@ function syncOneSignalTags() {
     const selected = (state.settings.reminderHours || []).slice().sort((a,b)=>a-b);
     const startHour = selected.length ? selected[0] : 7;
     const endHour   = selected.length ? selected[selected.length-1] + 1 : 22;
+    const pad = h => String(h).padStart(2, '0');
     const tags = {
       reminder_text:  reminderText,
-      reminder_start: String(startHour),
-      reminder_end:   String(endHour),
+      reminder_start: pad(startHour),
+      reminder_end:   pad(endHour),
     };
     if (window.OneSignal?.User?.addTags) {
       window.OneSignal.User.addTags(tags);
